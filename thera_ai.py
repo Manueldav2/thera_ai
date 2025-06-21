@@ -126,22 +126,26 @@ Keep responses concise but meaningful, focusing on the most therapeutically rele
 
     def process_interaction(self, audio_file_path):
         """Process a complete interaction cycle"""
-        # 1. Convert speech to text
-        user_text = self.transcribe_audio(audio_file_path)
-        print(f"User said: {user_text}")
-        
-        # 2. Get AI response
-        ai_response = self.get_ai_response(user_text)
-        print(f"AI response: {ai_response}")
-        
-        # 3. Convert response to speech
-        audio = self.text_to_speech(ai_response)
-        
-        return {
-            "user_input": user_text,
-            "ai_response": ai_response,
-            "audio_available": audio is not None
-        }
+        try:
+            # 1. Convert speech to text
+            user_text = self.transcribe_audio(audio_file_path)
+            print(f"User said: {user_text}")
+            
+            # 2. Get AI response
+            ai_response = self.get_ai_response(user_text)
+            print(f"AI response: {ai_response}")
+            
+            # 3. Convert response to speech
+            audio = self.text_to_speech(ai_response)
+            
+            return {
+                "user_input": user_text,
+                "ai_response": ai_response,
+                "audio_available": audio is not None
+            }
+        except Exception as e:
+            print(f"Error in process_interaction: {str(e)}")
+            raise e
 
 # Example usage
 if __name__ == "__main__":
