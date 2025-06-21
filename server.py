@@ -15,7 +15,10 @@ app = FastAPI()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "*"],  # Allow localhost and all domains (update this with your specific domain later)
+    allow_origins=[
+        "http://localhost:3000",
+        "https://thera-ai.vercel.app",  # Add your production frontend URL here
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,4 +74,6 @@ async def process_interaction(audio: UploadFile) -> Dict:
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port) 
+    host = "0.0.0.0"  # Required for Heroku
+    print(f"Starting server on {host}:{port}")
+    uvicorn.run(app, host=host, port=port, workers=1) 
