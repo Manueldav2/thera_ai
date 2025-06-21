@@ -19,14 +19,15 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Configure CORS to allow all origins
+# Configure CORS to be completely permissive
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,  # Set to False when using allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
+    expose_headers=["*"],
+    max_age=86400,  # Cache preflight requests for 24 hours
 )
 
 # Initialize TherapistAI
@@ -60,11 +61,19 @@ def convert_webm_to_wav(webm_path: str, wav_path: str) -> bool:
         logger.error(f"Error converting audio: {e.stderr.decode()}")
         return False
 
+@app.options("/process-interaction")
+async def options_process_interaction():
+    return Response(status_code=200)
+
 @app.post("/process-interaction")
 async def process_interaction(
     audio: UploadFile,
     conversation_history: Optional[str] = None
 ) -> Dict:
+    logger.info("Received audio processing request")
+    logger.info(f"Audio file name: {audio.filename}")
+    logger.info(f"Content type: {audio.content_type}")
+    
     if not audio:
         raise HTTPException(status_code=400, detail="No audio file provided")
     
