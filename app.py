@@ -63,6 +63,10 @@ class Message(BaseModel):
     session_id: str
     message: str
 
+class ChatMessage(BaseModel):
+    message: str
+    session_id: str
+
 class TherapistAI:
     def __init__(self):
         self.openai = openai_client
@@ -322,24 +326,27 @@ async def login(user: UserLogin):
     return {"session_id": session["session_id"]}
 
 @app.post("/chat")
-async def chat(message: Message):
-    SessionManager.update_session_activity(message.session_id)
-    previous_conversations = SessionManager.get_session_conversations(message.session_id)
-    
-    context = "\n".join([
-        f"User: {conv['user_message']}\nAI: {conv['ai_response']}"
-        for conv in previous_conversations[-5:]
-    ])
-    
-    ai_response = therapist.generate_response(message.message)
-    
-    SessionManager.store_conversation(
-        message.session_id,
-        message.message,
-        ai_response
-    )
-    
-    return {"response": ai_response}
+async def chat(message: ChatMessage) -> Dict:
+    try:
+        logger.info(f"Received chat message from session {message.session_id}")
+        
+        # Generate AI response
+        ai_response = therapist.generate_response(message.message)
+        logger.info("Generated AI response")
+        
+        return {"response": ai_response}
+        
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Failed to process chat message",
+                "message": str(e),
+                "type": type(e).__name__
+            }
+        )
 
 @app.get("/conversations/{session_id}")
 async def get_conversations(session_id: str):
