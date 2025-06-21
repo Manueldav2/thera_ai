@@ -19,14 +19,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Configure CORS with specific origins
+# Configure CORS to allow all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://thera-ai-1bb00.web.app",  # Production Firebase domain
-        "http://localhost:3000",           # Local development
-        "http://192.168.50.58:3000"        # Local network development
-    ],
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
