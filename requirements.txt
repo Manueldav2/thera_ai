@@ -1,0 +1,10 @@
+python-dotenv
+openai
+elevenlabs
+sounddevice
+numpy
+soundfile
+fastapi
+uvicorn
+python-multipart
+pydantic 
