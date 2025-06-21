@@ -9,4 +9,6 @@ uvicorn==0.27.0
 python-multipart==0.0.6
 pydantic>=2.5.3
 pydantic-core>=2.18.2
-gunicorn==21.2.0 
+gunicorn==21.2.0
+bcrypt==4.1.2
+supabase>=2.3.0 

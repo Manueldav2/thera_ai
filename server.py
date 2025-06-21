@@ -1,14 +1,17 @@
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import FastAPI, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from thera_ai import TherapistAI
+from session_manager import SessionManager
+from typing import Dict, Optional
 import os
-from typing import Dict
 import logging
 import traceback
 import soundfile as sf
 import io
 import subprocess
+from pydantic import BaseModel
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,6 +31,18 @@ app.add_middleware(
 # Initialize TherapistAI
 therapist = TherapistAI()
 
+class UserCreate(BaseModel):
+    email: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class Message(BaseModel):
+    session_id: str
+    message: str
+
 def convert_webm_to_wav(webm_path: str, wav_path: str) -> bool:
     """Convert webm audio file to wav format using ffmpeg"""
     try:
@@ -45,12 +60,28 @@ def convert_webm_to_wav(webm_path: str, wav_path: str) -> bool:
         return False
 
 @app.post("/process-interaction")
-async def process_interaction(audio: UploadFile) -> Dict:
+async def process_interaction(
+    audio: UploadFile,
+    conversation_history: Optional[str] = None
+) -> Dict:
     if not audio:
         raise HTTPException(status_code=400, detail="No audio file provided")
     
     try:
         logger.info(f"Processing audio file: {audio.filename}")
+        
+        # Parse conversation history if provided
+        history_context = ""
+        if conversation_history:
+            try:
+                history = json.loads(conversation_history)
+                history_context = "\n".join([
+                    f"User: {msg['user_message']}\nAI: {msg['ai_response']}"
+                    for msg in history
+                ])
+                logger.info("Added conversation history for context")
+            except Exception as e:
+                logger.warning(f"Failed to parse conversation history: {e}")
         
         # Read the audio content
         content = await audio.read()
@@ -67,9 +98,9 @@ async def process_interaction(audio: UploadFile) -> Dict:
             if not convert_webm_to_wav(temp_webm, temp_wav):
                 raise ValueError("Failed to convert audio file")
             
-            # Process the interaction
+            # Process the interaction with context
             logger.info("Processing interaction with TherapistAI")
-            result = therapist.process_interaction(temp_wav)
+            result = therapist.process_interaction(temp_wav, context=history_context)
             
             if not result or "user_input" not in result or "ai_response" not in result:
                 raise ValueError("Invalid response from TherapistAI")
@@ -101,6 +132,51 @@ async def process_interaction(audio: UploadFile) -> Dict:
                 "type": type(e).__name__
             }
         )
+
+@app.post("/signup")
+async def signup(user: UserCreate):
+    result = SessionManager.create_user(user.email, user.password)
+    if not result:
+        raise HTTPException(status_code=400, detail="Could not create user")
+    return {"message": "User created successfully"}
+
+@app.post("/login")
+async def login(user: UserLogin):
+    session = SessionManager.login_user(user.email, user.password)
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"session_id": session["session_id"]}
+
+@app.post("/chat")
+async def chat(message: Message):
+    # Update session activity
+    SessionManager.update_session_activity(message.session_id)
+    
+    # Get previous conversations for context
+    previous_conversations = SessionManager.get_session_conversations(message.session_id)
+    
+    # Process the message with context
+    context = "\n".join([
+        f"User: {conv['user_message']}\nAI: {conv['ai_response']}"
+        for conv in previous_conversations[-5:]  # Use last 5 conversations for context
+    ])
+    
+    # Get AI response
+    ai_response = therapist.get_response(message.message, context=context)
+    
+    # Store the conversation
+    SessionManager.store_conversation(
+        message.session_id,
+        message.message,
+        ai_response
+    )
+    
+    return {"response": ai_response}
+
+@app.get("/conversations/{session_id}")
+async def get_conversations(session_id: str):
+    conversations = SessionManager.get_session_conversations(session_id)
+    return {"conversations": conversations}
 
 if __name__ == "__main__":
     import uvicorn
