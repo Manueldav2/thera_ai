@@ -16,7 +16,7 @@ if not openai_api_key:
 
 # Set up API clients
 client = ElevenLabs(api_key=elevenlabs_api_key)
-openai_client = OpenAI()  # Will automatically use OPENAI_API_KEY from environment
+openai_client = OpenAI(api_key=openai_api_key)  # Initialize with explicit api_key parameter
 
 class TherapistAI:
     def __init__(self):
