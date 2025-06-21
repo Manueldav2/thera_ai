@@ -22,7 +22,7 @@ if not openai_api_key:
 
 # Set up API clients
 client = ElevenLabs(api_key=elevenlabs_api_key)
-openai_client = OpenAI(api_key=openai_api_key)
+openai_client = OpenAI()
 
 class TherapistAI:
     def __init__(self):
