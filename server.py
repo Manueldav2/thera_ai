@@ -19,13 +19,18 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Configure CORS
+# Configure CORS with specific origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins during development
+    allow_origins=[
+        "https://thera-ai-1bb00.web.app",  # Production Firebase domain
+        "http://localhost:3000",           # Local development
+        "http://192.168.50.58:3000"        # Local network development
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Initialize TherapistAI
