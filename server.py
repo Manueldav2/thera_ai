@@ -1,11 +1,13 @@
 from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from thera_ai import TherapistAI
 import os
 from typing import Dict
 import logging
 import traceback
+import soundfile as sf
+import io
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,17 +32,16 @@ async def process_interaction(audio: UploadFile) -> Dict:
     if not audio:
         raise HTTPException(status_code=400, detail="No audio file provided")
     
-    if not audio.filename.endswith('.wav'):
-        raise HTTPException(status_code=400, detail="File must be a WAV audio file")
-    
     try:
         logger.info(f"Processing audio file: {audio.filename}")
         
+        # Read the audio content
+        content = await audio.read()
+        
         # Save the uploaded file temporarily
-        temp_path = f"temp_{audio.filename}"
+        temp_path = f"temp_recording.wav"
         try:
             with open(temp_path, "wb") as buffer:
-                content = await audio.read()
                 buffer.write(content)
             
             # Process the interaction
