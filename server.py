@@ -5,6 +5,7 @@ from thera_ai import TherapistAI
 import os
 from typing import Dict
 import logging
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +67,15 @@ async def process_interaction(audio: UploadFile) -> Dict:
     
     except Exception as e:
         logger.error(f"Error processing interaction: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(traceback.format_exc())  # Log the full traceback
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Failed to process interaction",
+                "message": str(e),
+                "type": type(e).__name__
+            }
+        )
 
 if __name__ == "__main__":
     import uvicorn
