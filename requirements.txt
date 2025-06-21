@@ -1,11 +1,12 @@
 python-dotenv==1.0.0
 openai==1.8.0
-elevenlabs==2.4.0
+elevenlabs>=2.4.0
 sounddevice==0.4.6
 numpy==1.24.3
 soundfile==0.12.1
 fastapi==0.109.0
 uvicorn==0.27.0
 python-multipart==0.0.6
-pydantic==2.5.3
+pydantic>=2.5.3
+pydantic-core>=2.18.2
 gunicorn==21.2.0 
