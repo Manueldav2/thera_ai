@@ -134,13 +134,8 @@ Keep responses concise but meaningful, focusing on the most therapeutically rele
         ai_response = self.get_ai_response(user_text)
         print(f"AI response: {ai_response}")
         
-        # 3. Convert response to speech and play it
+        # 3. Convert response to speech
         audio = self.text_to_speech(ai_response)
-        
-        # 4. Play the response only if audio was generated
-        if audio:
-            from elevenlabs import play
-            play(audio)
         
         return {
             "user_input": user_text,
