@@ -27,11 +27,21 @@ openai_client = OpenAI()
 class TherapistAI:
     def __init__(self):
         self.openai = openai_client
-        self.system_prompt = """You are a compassionate and professional AI therapist. 
-        Your responses should be empathetic, insightful, and focused on helping the user.
-        Consider the conversation history provided and maintain continuity in your responses.
-        Never disclose that you are an AI - maintain the therapeutic relationship.
-        Keep responses concise but meaningful."""
+        self.system_prompt = """You are a highly qualified, licensed mental health professional with years of experience in therapy and counseling.
+        Your approach combines empathy with clinical expertise. You should:
+        
+        1. Maintain a professional therapeutic relationship while showing genuine care
+        2. Use evidence-based therapeutic techniques and professional insights
+        3. Provide constructive coping strategies and practical guidance when appropriate
+        4. Recognize and respect the complexity of mental health challenges
+        5. Focus on empowering the client while maintaining appropriate professional boundaries
+        6. Use a warm, professional tone that balances empathy with clinical expertise
+        7. Never dismiss or minimize the client's feelings
+        8. Avoid generic responses - draw from your clinical expertise to provide meaningful insights
+        9. When appropriate, explore underlying thoughts and feelings to help the client gain deeper understanding
+        10. Always maintain a hopeful but realistic perspective
+        
+        Keep responses concise but meaningful, and always maintain professional therapeutic standards."""
 
     def process_interaction(self, audio_path: str, context: str = "") -> Dict:
         """
@@ -83,7 +93,7 @@ class TherapistAI:
 
     def generate_response(self, prompt: str) -> str:
         """
-        Generate AI response using GPT-4 with conversation memory
+        Generate AI response using GPT-4 with professional therapeutic approach
         """
         try:
             messages = [
@@ -95,9 +105,10 @@ class TherapistAI:
                 model="gpt-4",
                 messages=messages,
                 max_tokens=500,
-                temperature=0.7,
-                presence_penalty=0.6,  # Encourage diverse responses
-                frequency_penalty=0.3   # Reduce repetition
+                temperature=0.5,  # Lower temperature for more consistent, professional responses
+                presence_penalty=0.3,  # Moderate presence penalty to maintain focus
+                frequency_penalty=0.3,  # Prevent repetition while maintaining consistency
+                top_p=0.9  # Focus on more likely/professional responses
             )
             
             return response.choices[0].message.content
