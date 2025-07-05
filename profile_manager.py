@@ -52,6 +52,41 @@ class ProfileManager:
             return False
 
     @staticmethod
+    def get_session_conversations(user_id: str) -> List[Dict]:
+        """Get all conversations for user"""
+        try:
+            result = supabase.table('conversations')\
+                .select('*')\
+                .eq('user_id', user_id)\
+                .order('created_at', desc=True)\
+                .limit(5)\
+                .execute()
+            
+            return result.data if result.data else []
+        except Exception as e:
+            logger.error(f"Error getting conversations: {str(e)}")
+            return []
+
+    @staticmethod
+    def store_conversation(user_id: str, user_message: str, ai_response: str) -> Optional[Dict]:
+        """Store new conversation"""
+        try:
+            result = supabase.table('conversations')\
+                .insert({
+                    'user_id': user_id,
+                    'user_message': user_message,
+                    'ai_response': ai_response,
+                    'created_at': datetime.utcnow().isoformat(),
+                    'metadata': {}
+                })\
+                .execute()
+            
+            return result.data[0] if result.data else None
+        except Exception as e:
+            logger.error(f"Error storing conversation: {str(e)}")
+            return None
+
+    @staticmethod
     def extract_personal_info(message: str, current_info: Dict) -> Dict:
         """Extract personal information from user messages"""
         try:

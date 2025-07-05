@@ -53,21 +53,9 @@ app.add_middleware(
     max_age=86400,
 )
 
-class UserCreate(BaseModel):
-    email: str
-    password: str
-
-class UserLogin(BaseModel):
-    email: str
-    password: str
-
-class Message(BaseModel):
-    session_id: str
-    message: str
-
 class ChatMessage(BaseModel):
-    message: str
     session_id: str
+    message: str
 
 class TherapistAI:
     def __init__(self):
@@ -266,99 +254,6 @@ class TherapistAI:
             logger.error(f"Error converting text to speech: {str(e)}")
             raise
 
-class SessionManager:
-    @staticmethod
-    def create_user(email: str, password: str):
-        try:
-            result = supabase.auth.sign_up({
-                "email": email,
-                "password": password
-            })
-            return result
-        except Exception as e:
-            logger.error(f"Error creating user: {str(e)}")
-            return None
-
-    @staticmethod
-    def login_user(email: str, password: str):
-        try:
-            result = supabase.auth.sign_in_with_password({
-                "email": email,
-                "password": password
-            })
-            return {"session_id": result.session.access_token}
-        except Exception as e:
-            logger.error(f"Error logging in user: {str(e)}")
-            return None
-
-    @staticmethod
-    def update_session_activity(session_id: str):
-        try:
-            supabase.table('sessions').update({
-                'last_activity': 'now()'
-            }).eq('session_id', session_id).execute()
-        except Exception as e:
-            logger.error(f"Error updating session activity: {str(e)}")
-
-    @staticmethod
-    def get_session_conversations(session_id: str):
-        try:
-            result = supabase.table('conversations').select('*').eq(
-                'session_id', session_id
-            ).order('created_at', desc=True).limit(5).execute()
-            return result.data
-        except Exception as e:
-            logger.error(f"Error getting conversations: {str(e)}")
-            return []
-
-    @staticmethod
-    def store_conversation(session_id: str, user_message: str, ai_response: str):
-        try:
-            # Get user_id from session
-            session = supabase.auth.get_user(session_id)
-            if not session or not session.user:
-                logger.error("No valid user found for session")
-                return None
-                
-            user_id = session.user.id
-            
-            # Store conversation with user_id
-            result = supabase.table('conversations').insert({
-                'user_id': user_id,
-                'user_message': user_message,
-                'ai_response': ai_response,
-                'created_at': datetime.utcnow().isoformat(),
-                'metadata': {
-                    'session_id': session_id,
-                    'timestamp': datetime.utcnow().isoformat()
-                }
-            }).execute()
-            
-            if not result.data:
-                logger.error("Failed to store conversation")
-                return None
-                
-            logger.info(f"Successfully stored conversation for user {user_id}")
-            return result.data[0]
-        except Exception as e:
-            logger.error(f"Error storing conversation: {str(e)}")
-            return None
-
-def convert_webm_to_wav(webm_path: str, wav_path: str) -> bool:
-    try:
-        subprocess.run([
-            'ffmpeg',
-            '-i', webm_path,
-            '-acodec', 'pcm_s16le',
-            '-ar', '16000',
-            '-ac', '1',
-            wav_path
-        ], check=True, capture_output=True)
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error converting audio: {e.stderr.decode()}")
-        return False
-
 # Initialize TherapistAI
 therapist = TherapistAI()
 
@@ -437,33 +332,16 @@ async def process_interaction(
             }
         )
 
-@app.post("/signup")
-async def signup(user: UserCreate):
-    result = SessionManager.create_user(user.email, user.password)
-    if not result:
-        raise HTTPException(status_code=400, detail="Could not create user")
-    return {"message": "User created successfully"}
-
-@app.post("/login")
-async def login(user: UserLogin):
-    session = SessionManager.login_user(user.email, user.password)
-    if not session:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return {"session_id": session["session_id"]}
-
 @app.post("/chat")
 async def chat(message: ChatMessage) -> Dict:
     try:
         logger.info(f"Received chat message from session {message.session_id}")
         
-        # Update session activity and get conversation history
-        SessionManager.update_session_activity(message.session_id)
-        previous_conversations = SessionManager.get_session_conversations(message.session_id)
-        
         # Get user profile context
         profile_context = ProfileManager.get_profile_context(message.session_id)
         
         # Build context from previous conversations
+        previous_conversations = ProfileManager.get_session_conversations(message.session_id)
         conv_context = "\n".join([
             f"User: {conv['user_message']}\nAI: {conv['ai_response']}"
             for conv in previous_conversations[-5:]  # Get last 5 conversations for context
@@ -483,7 +361,7 @@ async def chat(message: ChatMessage) -> Dict:
         ProfileManager.update_profile_from_message(message.session_id, message.message)
         
         # Store the conversation
-        conversation = SessionManager.store_conversation(
+        conversation = ProfileManager.store_conversation(
             message.session_id,
             message.message,
             ai_response
@@ -508,7 +386,7 @@ async def chat(message: ChatMessage) -> Dict:
 
 @app.get("/conversations/{session_id}")
 async def get_conversations(session_id: str):
-    conversations = SessionManager.get_session_conversations(session_id)
+    conversations = ProfileManager.get_session_conversations(session_id)
     return {"conversations": conversations}
 
 if __name__ == "__main__":

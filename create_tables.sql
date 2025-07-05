@@ -1,24 +1,15 @@
--- Create users table first
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
-    last_active TIMESTAMP WITH TIME ZONE
-);
+-- Enable UUID generation
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Create sessions table
-CREATE TABLE IF NOT EXISTS sessions (
-    session_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    last_active TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- Drop existing tables if they exist
+DROP TABLE IF EXISTS user_profiles CASCADE;
+DROP TABLE IF EXISTS conversations CASCADE;
 
 -- Create conversations table
 CREATE TABLE IF NOT EXISTS conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     user_message TEXT NOT NULL,
     ai_response TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
@@ -27,7 +18,7 @@ CREATE TABLE IF NOT EXISTS conversations (
 
 -- Create user_profiles table
 CREATE TABLE IF NOT EXISTS user_profiles (
-    user_id UUID REFERENCES users(id) PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     personal_info JSONB DEFAULT '{}'::jsonb,
     relationships JSONB DEFAULT '{}'::jsonb,
     important_events JSONB DEFAULT '[]'::jsonb,
@@ -47,12 +38,38 @@ END;
 $$ language 'plpgsql';
 
 -- Create triggers for updated_at columns
-CREATE TRIGGER update_users_updated_at
-    BEFORE UPDATE ON users
+DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON public.user_profiles;
+CREATE TRIGGER update_user_profiles_updated_at
+    BEFORE UPDATE ON public.user_profiles
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_user_profiles_updated_at
-    BEFORE UPDATE ON user_profiles
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column(); 
+-- Set up row level security (RLS)
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can view their own conversations"
+    ON public.conversations
+    FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own conversations"
+    ON public.conversations
+    FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own profile"
+    ON public.user_profiles
+    FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own profile"
+    ON public.user_profiles
+    FOR UPDATE
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own profile"
+    ON public.user_profiles
+    FOR INSERT
+    WITH CHECK (auth.uid() = user_id); 
