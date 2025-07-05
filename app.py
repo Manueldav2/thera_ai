@@ -14,6 +14,7 @@ import soundfile as sf
 import io
 import subprocess
 import json
+from profile_manager import ProfileManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -70,11 +71,32 @@ class ChatMessage(BaseModel):
 class TherapistAI:
     def __init__(self):
         self.openai = openai_client
-        self.system_prompt = """You are a compassionate and professional AI therapist. 
-        Your responses should be empathetic, insightful, and focused on helping the user.
+        self.system_prompt = """You are a licensed professional therapist with extensive experience in clinical psychology and counseling. 
+        Your responses should embody the highest standards of therapeutic practice, demonstrating:
+        - Deep empathy and unconditional positive regard for the client
+        - Professional competence in handling sensitive topics and crisis situations
+        - Evidence-based therapeutic techniques and interventions
+        - Ethical responsibility to address all concerns directly, never deflecting to other professionals
+        - Ability to maintain appropriate therapeutic boundaries while being fully present
+        - Skill in crisis intervention and safety planning when needed
+        - Comprehensive understanding of DSM-5-TR and current clinical frameworks
+        
+        Important Clinical Boundaries:
+        - While you are knowledgeable about the DSM-5-TR and mental health conditions, you DO NOT provide diagnoses
+        - Instead, focus on understanding and addressing the client's experiences, feelings, and concerns
+        - Use clinical knowledge to inform your therapeutic approach while staying within ethical boundaries
+        
         Consider the conversation history provided and maintain continuity in your responses.
         Never disclose that you are an AI - maintain the therapeutic relationship.
-        Keep responses concise but meaningful."""
+        Keep responses concise but meaningful, always prioritizing the client's wellbeing and safety.
+        
+        Handle sensitive topics (including but not limited to trauma, self-harm, abuse, and suicidal ideation) with:
+        - Clinical expertise and appropriate therapeutic frameworks
+        - Risk assessment and safety planning when needed
+        - Trauma-informed care principles
+        - Recognition of the severity while maintaining hope and focusing on solutions
+        - Professional judgment in exploring difficult topics at an appropriate pace
+        - Understanding of how various mental health conditions may influence the therapeutic process without diagnosing"""
 
     def process_interaction(self, audio_path: str, context: str = "") -> Dict:
         try:
@@ -330,9 +352,38 @@ async def chat(message: ChatMessage) -> Dict:
     try:
         logger.info(f"Received chat message from session {message.session_id}")
         
-        # Generate AI response
-        ai_response = therapist.generate_response(message.message)
+        # Update session activity and get conversation history
+        SessionManager.update_session_activity(message.session_id)
+        previous_conversations = SessionManager.get_session_conversations(message.session_id)
+        
+        # Get user profile context
+        profile_context = ProfileManager.get_profile_context(message.session_id)
+        
+        # Build context from previous conversations
+        conv_context = "\n".join([
+            f"User: {conv['user_message']}\nAI: {conv['ai_response']}"
+            for conv in previous_conversations[-5:]  # Get last 5 conversations for context
+        ])
+        
+        # Generate prompt with both profile and conversation context
+        prompt = f"""User Profile Information:\n{profile_context}\n\n"""
+        if conv_context:
+            prompt += f"""Recent Conversation History:\n{conv_context}\n\n"""
+        prompt += f"""Current user message: {message.message}\n\nTherapist:"""
+        
+        # Generate AI response with context
+        ai_response = therapist.generate_response(prompt)
         logger.info("Generated AI response")
+        
+        # Update user profile with any new information from the message
+        ProfileManager.update_profile_from_message(message.session_id, message.message)
+        
+        # Store the conversation
+        SessionManager.store_conversation(
+            message.session_id,
+            message.message,
+            ai_response
+        )
         
         return {"response": ai_response}
         

@@ -1,4 +1,4 @@
-from thera_ai import TherapistAI
+from Thera_ai_backend.thera_ai import TherapistAI
 from audio_utils import AudioRecorder
 
 def main():
