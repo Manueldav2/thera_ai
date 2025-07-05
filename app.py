@@ -144,7 +144,7 @@ class TherapistAI:
             ]
             
             response = self.openai.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4.1",
                 messages=messages,
                 max_tokens=500,
                 temperature=0.5,  # Lower temperature for more consistent, professional responses
