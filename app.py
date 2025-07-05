@@ -138,10 +138,33 @@ class TherapistAI:
 
     def generate_response(self, prompt: str) -> str:
         try:
-            messages = [
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": prompt}
-            ]
+            # Split the prompt into parts if it contains conversation history
+            messages = [{"role": "system", "content": self.system_prompt}]
+            
+            # Check if prompt contains conversation history
+            if "Previous conversation:" in prompt:
+                # Extract conversation history and current message
+                parts = prompt.split("Current user message:")
+                if len(parts) == 2:
+                    history_text = parts[0].replace("Previous conversation:\n", "").strip()
+                    current_message = parts[1].replace("\n\nTherapist:", "").strip()
+                    
+                    # Parse conversation history into message format
+                    history_exchanges = history_text.split("\n")
+                    for i in range(0, len(history_exchanges), 2):
+                        if i + 1 < len(history_exchanges):
+                            user_msg = history_exchanges[i].replace("User: ", "").strip()
+                            ai_msg = history_exchanges[i + 1].replace("AI: ", "").strip()
+                            messages.append({"role": "user", "content": user_msg})
+                            messages.append({"role": "assistant", "content": ai_msg})
+                    
+                    # Add current message
+                    messages.append({"role": "user", "content": current_message})
+                else:
+                    messages.append({"role": "user", "content": prompt})
+            else:
+                # If no history, just add the current message
+                messages.append({"role": "user", "content": prompt.replace("User: ", "").replace("\n\nTherapist:", "")})
             
             response = self.openai.chat.completions.create(
                 model="gpt-4.1",
