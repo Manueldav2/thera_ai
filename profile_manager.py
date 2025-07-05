@@ -111,7 +111,7 @@ class ProfileManager:
             """
             
             response = therapist.openai.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4-0125-preview",
                 messages=[
                     {"role": "system", "content": "You are an AI designed to extract personal information from conversations. Only return valid JSON."},
                     {"role": "user", "content": prompt}
