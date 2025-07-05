@@ -85,6 +85,7 @@ class TherapistAI:
            
         Memory Usage Instructions:
         - ALWAYS scan the provided User Profile Information for relevant context
+<<<<<<< HEAD
         - If you don't know the user's name, ask for it early in the conversation
         - ALWAYS use the user's name (if known) at least once in your response
         - When people are mentioned:
@@ -113,6 +114,11 @@ class TherapistAI:
            - Connect past and present: "How has your relationship with [name] evolved since [previous event]?"
            - Show continuity of care: "Given what you've shared about [name] and their role in [previous situation]..."
         
+=======
+        - Reference specific details from Recent Conversation History when responding
+        - Connect current topics with information from both profile and conversation history
+        - When referencing past information, be specific (e.g., "As you mentioned earlier about [specific detail]...")
+>>>>>>> 5b2b400 (fix convo history)
         - NEVER say you can't remember or don't have access to previous conversations
         
         Core Therapeutic Approach:
