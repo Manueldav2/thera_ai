@@ -15,6 +15,7 @@ import io
 import subprocess
 import json
 from profile_manager import ProfileManager
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -96,9 +97,34 @@ class TherapistAI:
            
         Memory Usage Instructions:
         - ALWAYS scan the provided User Profile Information for relevant context
-        - Reference specific details from Recent Conversation History when responding
-        - Connect current topics with information from both profile and conversation history
-        - When referencing past information, be specific (e.g., "As you mentioned earlier about [specific detail]...")
+        - If you don't know the user's name, ask for it early in the conversation
+        - ALWAYS use the user's name (if known) at least once in your response
+        - When people are mentioned:
+          * Use their names and roles consistently (e.g., "your friend Mary" or "your mom Sarah")
+          * Ask follow-up questions about them if relevant
+          * Reference previous information about them if available
+        
+        Proactive Engagement Rules:
+        1. When a new person is mentioned:
+           - Ask specific questions about them and their role in the user's life
+           - Show interest in understanding the relationship
+           - Connect them to previous conversations if relevant
+        
+        2. When a known person is mentioned:
+           - Reference what you know about them
+           - Ask about updates or changes
+           - Connect to previous discussions involving them
+        
+        3. Always ask relevant follow-up questions:
+           - If someone shares something positive: "What made that moment with [name] special?"
+           - If expressing concerns: "How has [name] been supporting you with this?"
+           - If mentioning changes: "How has this affected your relationship with [name]?"
+        
+        4. Memory Reinforcement:
+           - Actively use known information: "Last time you mentioned [name] helped you with [specific thing]..."
+           - Connect past and present: "How has your relationship with [name] evolved since [previous event]?"
+           - Show continuity of care: "Given what you've shared about [name] and their role in [previous situation]..."
+        
         - NEVER say you can't remember or don't have access to previous conversations
         
         Core Therapeutic Approach:
@@ -288,13 +314,35 @@ class SessionManager:
     @staticmethod
     def store_conversation(session_id: str, user_message: str, ai_response: str):
         try:
-            supabase.table('conversations').insert({
-                'session_id': session_id,
+            # Get user_id from session
+            session = supabase.auth.get_user(session_id)
+            if not session or not session.user:
+                logger.error("No valid user found for session")
+                return None
+                
+            user_id = session.user.id
+            
+            # Store conversation with user_id
+            result = supabase.table('conversations').insert({
+                'user_id': user_id,
                 'user_message': user_message,
-                'ai_response': ai_response
+                'ai_response': ai_response,
+                'created_at': datetime.utcnow().isoformat(),
+                'metadata': {
+                    'session_id': session_id,
+                    'timestamp': datetime.utcnow().isoformat()
+                }
             }).execute()
+            
+            if not result.data:
+                logger.error("Failed to store conversation")
+                return None
+                
+            logger.info(f"Successfully stored conversation for user {user_id}")
+            return result.data[0]
         except Exception as e:
             logger.error(f"Error storing conversation: {str(e)}")
+            return None
 
 def convert_webm_to_wav(webm_path: str, wav_path: str) -> bool:
     try:
@@ -435,11 +483,14 @@ async def chat(message: ChatMessage) -> Dict:
         ProfileManager.update_profile_from_message(message.session_id, message.message)
         
         # Store the conversation
-        SessionManager.store_conversation(
+        conversation = SessionManager.store_conversation(
             message.session_id,
             message.message,
             ai_response
         )
+        
+        if not conversation:
+            raise ValueError("Failed to store conversation")
         
         return {"response": ai_response}
         

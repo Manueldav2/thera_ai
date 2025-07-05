@@ -60,7 +60,12 @@ class ProfileManager:
             
             prompt = f"""
             Given the user's message and their current stored information, extract any new personal information mentioned.
-            Focus on relationships, important life events, preferences, and goals.
+            Pay special attention to:
+            1. Names of people mentioned (especially family, friends, partners)
+            2. Relationships and roles (e.g., "my mom Sarah", "my friend Mary")
+            3. The user's own name if mentioned
+            4. Personal details about mentioned relationships
+            5. Important life events, preferences, and goals
             
             Current stored information:
             {json.dumps(current_info, indent=2)}
@@ -70,11 +75,38 @@ class ProfileManager:
             
             Return ONLY a JSON object with the following structure (only include fields where new information was found):
             {{
-                "personal_info": {{}},
-                "relationships": {{}},
+                "personal_info": {{
+                    "name": "user's name if mentioned",
+                    "other_details": "any other personal details"
+                }},
+                "relationships": {{
+                    "person_name": {{
+                        "role": "relationship to user",
+                        "details": "any mentioned details about this person",
+                        "last_discussed": "timestamp"
+                    }}
+                }},
                 "important_events": [],
                 "preferences": {{}},
                 "goals": []
+            }}
+
+            Example:
+            If user says "I was talking to my mom Sarah about my friend Mary who helped me through depression",
+            Extract:
+            {{
+                "relationships": {{
+                    "Sarah": {{
+                        "role": "mother",
+                        "details": "user's mom",
+                        "last_discussed": "current_timestamp"
+                    }},
+                    "Mary": {{
+                        "role": "friend",
+                        "details": "helped user through depression",
+                        "last_discussed": "current_timestamp"
+                    }}
+                }}
             }}
             """
             
@@ -106,15 +138,49 @@ class ProfileManager:
             
             # Update each field if new information exists
             for field, data in new_info.items():
-                if data:  # Only update if there's new information
-                    current_data = current_profile.get(field, {} if isinstance(data, dict) else [])
+                if not data:  # Skip empty updates
+                    continue
                     
-                    if isinstance(data, dict):
-                        current_data.update(data)
-                    elif isinstance(data, list):
-                        current_data.extend(data)
-                    
-                    ProfileManager.update_profile_field(user_id, field, current_data)
+                current_data = current_profile.get(field, {} if isinstance(data, dict) else [])
+                
+                if field == 'relationships':
+                    # Special handling for relationships to preserve history
+                    for person_name, new_details in data.items():
+                        if person_name in current_data:
+                            # Update existing relationship
+                            current_data[person_name].update(new_details)
+                            # Preserve old details if not overwritten
+                            if 'details' in new_details and 'previous_details' not in current_data[person_name]:
+                                current_data[person_name]['previous_details'] = [current_data[person_name]['details']]
+                            elif 'details' in new_details:
+                                current_data[person_name]['previous_details'].append(current_data[person_name]['details'])
+                        else:
+                            # Add new relationship
+                            current_data[person_name] = new_details
+                            
+                        # Always update last_discussed
+                        current_data[person_name]['last_discussed'] = datetime.utcnow().isoformat()
+                        
+                elif isinstance(data, dict):
+                    # Merge dictionaries, preserving existing data
+                    for key, value in data.items():
+                        if key in current_data and isinstance(current_data[key], (dict, list)):
+                            # If the field is itself a complex type, do a deep merge
+                            if isinstance(current_data[key], dict):
+                                current_data[key].update(value)
+                            else:  # list
+                                current_data[key].extend(value)
+                        else:
+                            current_data[key] = value
+                elif isinstance(data, list):
+                    # Add new items while avoiding duplicates
+                    current_data.extend([item for item in data if item not in current_data])
+                
+                # Update the field in the profile
+                success = ProfileManager.update_profile_field(user_id, field, current_data)
+                if not success:
+                    logger.error(f"Failed to update field {field}")
+                    return False
             
             return True
         except Exception as e:
