@@ -38,4 +38,36 @@ ENV/
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db 
+Thumbs.db
+
+# Environment variables and secrets
+.env
+.env.*
+*.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Temporary files
+temp_*
+*.temp
+*.tmp
+temp/
+tmp/
+
+# Audio files
+*.wav
+*.mp3
+*.webm
+*.ogg
+*.m4a
+
+# Local development
+.local/
+instance/ 
